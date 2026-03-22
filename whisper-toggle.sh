@@ -15,6 +15,7 @@ LOCK_FILE="$TMPDIR/whisper_toggle.lock"
 OVERLAY_BIN="$SCRIPT_DIR/build/bin/whisper-dictation-hud"
 WHISPER_CLI="$SCRIPT_DIR/build/bin/whisper-cli"
 MODEL="$SCRIPT_DIR/models/ggml-small.en.bin"
+TRANSCRIPT_LOG="$TMPDIR/whisper_last_transcript.txt"
 
 die() { echo "whisper-toggle: $*" >&2; exit 1; }
 
@@ -55,32 +56,46 @@ overlay_busy_start() {
     echo $! > "$OVERLAY_BUSY_PID"
 }
 
-# Paste text into the focused window via clipboard + Ctrl+Shift+V.
+# Paste text into the focused window.
+# Always saves transcript to TRANSCRIPT_LOG so it's never lost.
 type_into_focused_window() {
     local text="$1"
     [ -n "$text" ] || return 0
+
+    # Always persist — if paste fails, the user can recover from this file.
+    printf '%s\n' "$text" > "$TRANSCRIPT_LOG"
+
     sleep 0.5  # wait for focus to return after overlay closes
+
+    # Prefer wtype (Wayland-native, types directly — no clipboard needed).
+    if command -v wtype >/dev/null 2>&1; then
+        wtype -- "$text" && return 0
+        # wtype failed (e.g. no focus) — fall through to clipboard approach
+    fi
+
     if command -v wl-copy >/dev/null 2>&1; then
-        # Copy to both clipboards, then verify the content actually landed.
-        # wl-copy forks a daemon to serve requests — sometimes it isn't ready
-        # before we send the paste keystroke, causing empty pastes.
         local attempt
-        for attempt in 1 2 3; do
+        for attempt in 1 2 3 4 5; do
             printf '%s' "$text" | wl-copy
             printf '%s' "$text" | wl-copy --primary
-            sleep 0.33
+            sleep 0.25
             local got
             got="$(wl-paste --no-newline 2>/dev/null || true)"
             if [ "$got" = "$text" ]; then
                 break
             fi
-            sleep 0.3  # back off before retry
+            sleep 0.3
         done
-        xdotool key --clearmodifiers ctrl+shift+v
+        # Try xdotool paste, but also try wtype paste as backup
+        if command -v xdotool >/dev/null 2>&1; then
+            xdotool key --clearmodifiers ctrl+shift+v
+        elif command -v wtype >/dev/null 2>&1; then
+            wtype -M ctrl -M shift -k v -m shift -m ctrl
+        fi
     elif command -v xdotool >/dev/null 2>&1; then
         xdotool type --clearmodifiers --delay 8 "$text"
     else
-        die "install wl-clipboard + xdotool"
+        die "install wtype or wl-clipboard+xdotool. Transcript saved: $TRANSCRIPT_LOG"
     fi
 }
 
@@ -107,9 +122,16 @@ if [ -f "$PID_FILE" ]; then
         --beam-size 8 \
         -t 4 \
         2>/dev/null)
+    WHISPER_EXIT=$?
     set -e
 
     rm -f "$AUDIO_FILE"
+
+    if [ "$WHISPER_EXIT" -ne 0 ]; then
+        overlay_kill_busy
+        notify-send -u critical "Whisper Dictation" "Transcription failed (exit $WHISPER_EXIT)" 2>/dev/null || true
+        exit 1
+    fi
 
     # Strip the prompt if whisper echoed it back (happens on silence/short clips)
     TRANSCRIPT="${TRANSCRIPT//$PROMPT/}"
@@ -119,6 +141,12 @@ if [ -f "$PID_FILE" ]; then
     TRANSCRIPT="${TRANSCRIPT%"${TRANSCRIPT##*[![:space:]]}"}"
 
     overlay_kill_busy
+
+    if [ -z "$TRANSCRIPT" ]; then
+        notify-send -u normal "Whisper Dictation" "No speech detected" 2>/dev/null || true
+        exit 0
+    fi
+
     type_into_focused_window "$TRANSCRIPT"
 else
     command -v arecord >/dev/null 2>&1 || die "arecord not installed (install package alsa-utils)"
