@@ -853,6 +853,32 @@ Some of the examples are even ported to run in the browser using WebAssembly. Ch
 | [livestream.sh](examples/livestream.sh)             |                                       | [Livestream audio transcription](https://github.com/ggml-org/whisper.cpp/issues/185)                                            |
 | [yt-wsp.sh](examples/yt-wsp.sh)                     |                                       | Download + transcribe and/or translate any VOD [(original)](https://gist.github.com/DaniruKun/96f763ec1a037cc92fe1a059b643b818) |
 | [wchess](examples/wchess)                           | [wchess.wasm](examples/wchess)        | Voice-controlled chess                                                                                                          |
+| [whisper-dictation-hud](examples/dictation-hud)     |                                       | Floating dictation HUD with live waveform — speak, transcribe, and paste anywhere via hotkey                                    |
+
+## Dictation HUD (Linux)
+
+A lightweight, system-wide voice dictation tool with a transparent floating HUD overlay. Press a hotkey to start recording, press again to transcribe and paste the text into any focused window.
+
+**Features:**
+
+- Reactive waveform visualization — bars respond to your voice in real-time
+- Transparent glass-style overlay that stays on top of all windows
+- Color-coded states: green (listening), blue (transcribing)
+- Automatic paste into the focused window via clipboard
+- ESC to cancel and discard a recording
+- Works on GNOME Wayland and X11
+
+**Quick setup:**
+
+```bash
+bash scripts/setup-whisper-dictation.sh
+```
+
+This installs dependencies, builds everything, downloads the `small.en` model, and creates a desktop entry. Then assign a keyboard shortcut (e.g. `Ctrl+Shift+Space`) to `whisper-toggle.sh`.
+
+**Usage:** Press the hotkey to start recording — a green waveform appears. Speak, then press the hotkey again. The waveform turns blue while transcribing, and the text is pasted into whatever window has focus.
+
+> Built on top of [whisper.cpp](https://github.com/ggerganov/whisper.cpp) by [Georgi Gerganov](https://github.com/ggerganov) and contributors.
 
 ## [Discussions](https://github.com/ggml-org/whisper.cpp/discussions)
 

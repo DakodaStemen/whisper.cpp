@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One-shot setup: deps, whisper-cli build, base.en model, desktop entry for hotkeys.
+# One-shot setup: deps, whisper-cli build, small.en model, desktop entry for hotkeys.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -26,9 +26,12 @@ if ! need_cmd arecord; then
   PKGS+=(alsa-utils)
 fi
 
-# Wayland: ydotool (uses uinput, works on GNOME). X11: xdotool.
-if ! need_cmd ydotool && ! need_cmd xdotool; then
+# xdotool for keystroke simulation, wl-clipboard for Wayland clipboard access
+if ! need_cmd xdotool; then
   PKGS+=(xdotool)
+fi
+if ! need_cmd wl-copy; then
+  PKGS+=(wl-clipboard)
 fi
 
 # Dictation HUD (C++ / gtkmm3), same stack family as GNOME Gtk3.
@@ -50,10 +53,10 @@ if [ ! -x "$WHISPER_CLI" ] || [ ! -x "$HUD" ]; then
   cmake --build "$REPO_ROOT/build" -j --config Release --target whisper-cli whisper-dictation-hud
 fi
 
-MODEL="$REPO_ROOT/models/ggml-base.en.bin"
+MODEL="$REPO_ROOT/models/ggml-small.en.bin"
 if [ ! -f "$MODEL" ]; then
-  echo "Downloading ggml-base.en model..."
-  (cd "$REPO_ROOT" && bash ./models/download-ggml-model.sh base.en)
+  echo "Downloading ggml-small.en model..."
+  (cd "$REPO_ROOT" && bash ./models/download-ggml-model.sh small.en)
 fi
 
 mkdir -p "$DESKTOP_DIR"
