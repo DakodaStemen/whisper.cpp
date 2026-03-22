@@ -118,6 +118,10 @@ else()
     endif (WHISPER_SDL2)
 
     add_subdirectory(deprecation-warning)
+
+    if (WHISPER_BUILD_DICTATION_HUD)
+        add_subdirectory(dictation-hud)
+    endif()
 endif()
 
 if (WHISPER_SDL2)
