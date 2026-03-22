@@ -61,9 +61,21 @@ type_into_focused_window() {
     [ -n "$text" ] || return 0
     sleep 0.5  # wait for focus to return after overlay closes
     if command -v wl-copy >/dev/null 2>&1; then
-        printf '%s' "$text" | wl-copy
-        printf '%s' "$text" | wl-copy --primary
-        sleep 0.15  # let clipboard register before keystroke
+        # Copy to both clipboards, then verify the content actually landed.
+        # wl-copy forks a daemon to serve requests — sometimes it isn't ready
+        # before we send the paste keystroke, causing empty pastes.
+        local attempt
+        for attempt in 1 2 3; do
+            printf '%s' "$text" | wl-copy
+            printf '%s' "$text" | wl-copy --primary
+            sleep 0.33
+            local got
+            got="$(wl-paste --no-newline 2>/dev/null || true)"
+            if [ "$got" = "$text" ]; then
+                break
+            fi
+            sleep 0.3  # back off before retry
+        done
         xdotool key --clearmodifiers ctrl+shift+v
     elif command -v xdotool >/dev/null 2>&1; then
         xdotool type --clearmodifiers --delay 8 "$text"
