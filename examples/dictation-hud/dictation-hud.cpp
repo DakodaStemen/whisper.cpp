@@ -208,15 +208,9 @@ int main(int argc, char ** argv) {
 
     int exit_code = 0;
 
-    Gtk::Window window;
-    window.set_decorated(false);
+    Gtk::Window window(Gtk::WINDOW_POPUP);
     window.set_keep_above(true);
-    window.set_skip_taskbar_hint(true);
-    window.set_accept_focus(mode == "listen");
-    window.set_focus_on_map(mode == "listen");
-    window.set_type_hint(Gdk::WINDOW_TYPE_HINT_NOTIFICATION);
     window.set_default_size(160, -1);
-    window.stick();
 
     window.signal_key_press_event().connect([&](GdkEventKey * event) -> bool {
         if (event->keyval == GDK_KEY_Escape) {

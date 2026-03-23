@@ -17,6 +17,9 @@ WHISPER_CLI="$SCRIPT_DIR/build/bin/whisper-cli"
 MODEL="$SCRIPT_DIR/models/ggml-small.en.bin"
 TRANSCRIPT_LOG="$TMPDIR/whisper_last_transcript.txt"
 
+# Preferred ALSA capture device (set to "" to use PipeWire/system default)
+ARECORD_DEVICE="${WHISPER_MIC:-}"
+
 die() { echo "whisper-toggle: $*" >&2; exit 1; }
 
 # Acquire an exclusive lock so rapid hotkey presses don't race.
@@ -152,7 +155,9 @@ else
     command -v arecord >/dev/null 2>&1 || die "arecord not installed (install package alsa-utils)"
     overlay_kill_busy
     # Start recording (16kHz, 16-bit, mono — required by whisper)
-    arecord -f S16_LE -c 1 -r 16000 "$AUDIO_FILE" -q 9>&- &
+    ARECORD_ARGS=(-f S16_LE -c 1 -r 16000)
+    [ -n "$ARECORD_DEVICE" ] && ARECORD_ARGS+=(-D "$ARECORD_DEVICE")
+    arecord "${ARECORD_ARGS[@]}" "$AUDIO_FILE" -q 9>&- &
     REC_PID=$!
     echo $REC_PID > "$PID_FILE"
     release_lock
