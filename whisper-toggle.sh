@@ -110,7 +110,14 @@ if [ -f "$PID_FILE" ]; then
     rm -f "$PID_FILE"
     if [ -n "${pid:-}" ] && kill -0 "$pid" 2>/dev/null; then
         kill -INT "$pid" 2>/dev/null || true
-        wait "$pid" 2>/dev/null || true
+        # arecord is a child of the first toggle instance, so we can't wait on it.
+        # Poll until it's actually dead and the WAV file is flushed.
+        for _ in $(seq 1 20); do
+            kill -0 "$pid" 2>/dev/null || break
+            sleep 0.05
+        done
+        # Force kill if it's still alive
+        kill -9 "$pid" 2>/dev/null || true
     fi
 
     overlay_kill_listen
